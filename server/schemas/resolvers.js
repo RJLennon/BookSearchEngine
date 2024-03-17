@@ -1,27 +1,56 @@
-const { Tech, Matchup } = require('../models');
+const { Book, User } = require('../models');
+const { signToken } = require('../utils/auth');
 
 const resolvers = {
   Query: {
-    tech: async () => {
-      return Tech.find({});
-    },
-    matchups: async (parent, { _id }) => {
-      const params = _id ? { _id } : {};
-      return Matchup.find(params);
+    singleUser: async (parent, args, context) => {
+      if (context.user) {
+        const user = await User.findOne({ _id: context.user._id }).populate('savedBooks');
+        return user;
+      }
+      throw new Error('Not logged in');
     },
   },
   Mutation: {
-    createMatchup: async (parent, args) => {
-      const matchup = await Matchup.create(args);
-      return matchup;
+    createUser: async (parent, args) => {
+      const user = await User.create(args);
+      const token = signToken(user);
+      return { token, user };
     },
-    createVote: async (parent, { _id, techNum }) => {
-      const vote = await Matchup.findOneAndUpdate(
-        { _id },
-        { $inc: { [`tech${techNum}_votes`]: 1 } },
-        { new: true }
-      );
-      return vote;
+    login: async (parent, { email, password }) => {
+      const user = await User.findOne
+      ({ email });
+      if (!user) {
+        throw new Error('Incorrect credentials');
+      }
+      const correctPw = await user.isCorrectPassword(password);
+      if (!correctPw) {
+        throw new Error('Incorrect credentials');
+      }
+      const token = signToken(user);
+      return { token, user };
+    },
+    saveBook: async (parent, { bookData }, context) => {
+      if (context.user) {
+        const updatedUser = await User.findOneAndUpdate(
+          { _id: context.user._id },
+          { $addToSet: { savedBooks: bookData } },
+          { new: true }
+        ).populate('savedBooks');
+        return updatedUser;
+      }
+      throw new Error('You need to be logged in!');
+    },
+    deleteBook: async (parent, { bookId }, context) => {
+      if (context.user) {
+        const updatedUser = await User.findOneAndUpdate(
+          { _id: context.user._id },
+          { $pull: { savedBooks: { bookId } } },
+          { new: true }
+        ).populate('savedBooks');
+        return updatedUser;
+      }
+      throw new Error('You need to be logged in!');
     },
   },
 };
