@@ -22,6 +22,7 @@ const SavedBooks = () => {
 
   const userDataLength = Object.keys(userData).length;
 
+  console.log(userData);
 
   // create function that accepts the book's mongo _id value as param and deletes the book from the database
   const handleDeleteBook = async (bookId) => {
